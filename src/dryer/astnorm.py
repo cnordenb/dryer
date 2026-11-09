@@ -51,6 +51,7 @@ _LITERALS = {
     "float_literal",
     "imaginary_literal",
     "integer_literal",
+    "number_literal",
     "true",
     "false",
     "null",

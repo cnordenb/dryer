@@ -1,0 +1,4 @@
+# A Windows checkout with core.autocrlf would give the POSIX launcher CRLF
+# endings, which breaks it under WSL and Linux. cmd.exe wants CRLF.
+dryer text eol=lf
+*.cmd text eol=crlf

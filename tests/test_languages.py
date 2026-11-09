@@ -111,6 +111,20 @@ pub fn beta(items: Vec<i32>) -> Vec<i32> {
 }
 """
 
+C_LEFT = """\
+int *alpha(int *xs) {
+    int *ys = filter(xs, odd);
+    return map(ys, inc);
+}
+"""
+
+C_RIGHT = """\
+int *beta(int *items) {
+    int *kept = filter(items, even);
+    return map(kept, dec);
+}
+"""
+
 
 def test_each_language_matches_renamed_locals(tmp_path):
     samples = {
@@ -126,6 +140,8 @@ def test_each_language_matches_renamed_locals(tmp_path):
         "right.tsx": TSX_RIGHT,
         "left.rs": RUST_LEFT,
         "right.rs": RUST_RIGHT,
+        "left.c": C_LEFT,
+        "right.h": C_RIGHT,
     }
     for name, source in samples.items():
         write_source(tmp_path, name, source)
@@ -133,7 +149,10 @@ def test_each_language_matches_renamed_locals(tmp_path):
     by_language = {}
     for item in found:
         by_language.setdefault(item.language, []).append(item)
-    assert set(by_language) == {"java", "go", "python", "typescript", "rust"}
+    assert set(by_language) == {"java", "go", "python", "typescript", "rust", "c"}
+    assert [(item.left.file, item.right.file) for item in by_language["c"]] == [
+        ("left.c", "right.h"),
+    ]
     assert [(item.left.file, item.right.file) for item in by_language["typescript"]] == [
         ("left.ts", "right.ts"),
         ("left.tsx", "right.tsx"),
@@ -237,7 +256,14 @@ class Right {
 
 
 def _suffix(language: str) -> str:
-    return {"python": "py", "go": "go", "rust": "rs", "java": "java", "typescript": "ts"}[language]
+    return {
+        "python": "py",
+        "go": "go",
+        "rust": "rs",
+        "java": "java",
+        "typescript": "ts",
+        "c": "c",
+    }[language]
 
 
 def test_callee_names_stay_and_member_names_do_not(tmp_path):
@@ -308,6 +334,18 @@ export function beta(items: number[]): number {
   return foo<number>(items.baz);
 }
 """,
+        "left.c": """\
+int alpha(struct board *xs) {
+    int ys = xs->ops->read(xs, 1);
+    return printf("%d", xs->total) + ys;
+}
+""",
+        "right.c": """\
+int beta(struct panel *items) {
+    int kept = items->ops->read(items, 2);
+    return printf("%s", items.count) + kept;
+}
+""",
     }
     for name, source in samples.items():
         write_source(tmp_path, name, source)
@@ -315,7 +353,7 @@ export function beta(items: number[]): number {
     by_language = {}
     for item in found:
         by_language.setdefault(item.language, []).append(item)
-    assert set(by_language) == {"python", "go", "rust", "java", "typescript"}
+    assert set(by_language) == {"python", "go", "rust", "java", "typescript", "c"}
     for language, group in by_language.items():
         assert [(item.left.file, item.right.file, item.score) for item in group] == [
             (f"left.{_suffix(language)}", f"right.{_suffix(language)}", 1.0)
@@ -327,11 +365,13 @@ def test_a_different_callee_name_lowers_the_score(tmp_path):
     write_source(tmp_path, "b.py", "def beta(items):\n    return items.select(even)\n")
     write_source(tmp_path, "a.rs", "fn alpha() {\n    Vec::new()\n}\n")
     write_source(tmp_path, "b.rs", "fn beta() {\n    Vec::with_capacity(1)\n}\n")
+    write_source(tmp_path, "a.c", "int alpha(struct s *p) {\n    return p->ops->read(p);\n}\n")
+    write_source(tmp_path, "b.c", "int beta(struct s *p) {\n    return p->ops->write(p);\n}\n")
     files = sorted(path for path in tmp_path.rglob("*") if path.is_file())
     entries, warnings = scan_files(files, tmp_path, min_lines=1, min_nodes=1)
     assert warnings == []
     found = find_duplicates(entries, threshold=0.0)
-    assert len(found) == 2
+    assert len(found) == 3
     assert all(item.score < 1.0 for item in found)
 
 
@@ -520,6 +560,42 @@ xs.map((item: number) => item + 1);
 """,
         "a.ts",
     ) == [(2, 4), (6, 12)]
+
+
+def test_c_compares_definitions_and_keeps_nested_functions_inside():
+    assert spans(
+        "c",
+        """\
+#include <stdio.h>
+
+int declared(int x);
+
+static int
+alpha(int x)
+{
+    int inner(int y) {
+        return y + x;
+    }
+    return inner(1);
+}
+
+#ifdef FEATURE
+int beta(int x) {
+    return x * 2;
+}
+#endif
+""",
+        "a.c",
+    ) == [(5, 12), (15, 17)]
+
+
+def test_c_numbers_strings_and_null_are_the_same_literal():
+    number = forms("c", "int alpha(void) {\n    return 0x1fu;\n}\n", "a.c")
+    string = forms("c", 'int beta(void) {\n    return "xs";\n}\n', "b.c")
+    null = forms("c", "int gamma(void) {\n    return NULL;\n}\n", "c.c")
+    assert ":literal" in number[0].fingerprints
+    found = find_duplicates(number + string + null, threshold=0.99)
+    assert [item.score for item in found] == [1.0, 1.0, 1.0]
 
 
 def test_a_private_field_name_is_not_part_of_the_structure():

@@ -1,8 +1,8 @@
 # dryer
 
-dryer finds candidate duplicate code in Clojure, Java, Go, TypeScript, Rust, and Python. One run detects the language of each source file, normalizes that language's forms, and reports pairs whose structure is close enough to review.
+dryer finds candidate duplicate code in Clojure, Java, Go, TypeScript, Rust, Python, and C. One run detects the language of each source file, normalizes that language's forms, and reports pairs whose structure is close enough to review.
 
-Clojure follows [dry4clj](https://github.com/unclebob/dry4clj). The other languages use the same idea on the functions and methods [crapper](https://github.com/unclebob/crapper) and [mutator](https://github.com/unclebob/mutator) already treat as one unit. A form is only compared with forms written in the same language.
+Clojure follows [dry4clj](https://github.com/unclebob/dry4clj). The other languages use the same idea on the functions and methods [crapper](https://github.com/unclebob/crapper) and [mutator](https://github.com/unclebob/mutator) already treat as one unit, and C uses it on function definitions. A form is only compared with forms written in the same language.
 
 The score is Jaccard similarity of structural fingerprints:
 
@@ -47,7 +47,13 @@ What stays is the call or method name, the operator, and the shape of the tree. 
 ./dryer
 ```
 
-The first run creates `.venv` and installs the tool. From a project root it walks the tree, skips `test`, `spec`, `vendor`, `node_modules`, and `target`, and writes two results:
+On Windows, `.\dryer` in PowerShell or cmd.exe runs `dryer.cmd`, which does the same thing. `./dryer` works from Git Bash.
+
+The first run creates `.venv` from Python 3.11 or newer (`python3`, `python`, or `py -3`) and installs the tool. If an install is interrupted, the next run finishes it. Each language's tree-sitter grammar is downloaded to a per-user cache the first time a file in that language is read, so the first scan needs network access.
+
+To put `dryer` on your `PATH` instead, install the package with `pipx install .` or `pip install .`.
+
+From a project root it walks the tree, skips `test`, `spec`, `vendor`, `node_modules`, and `target`, and writes two results:
 
 - a report on stdout, closest match first
 - `.metrics/dry.edn`, replaced on every successful analysis
@@ -101,6 +107,9 @@ DUPLICATE score=0.89
 | TypeScript | functions, methods, and top-level arrow functions | callbacks nested inside another function |
 | Rust | functions and methods with a body | functions inside `mod tests`, and closures |
 | Python | functions and methods | functions nested inside another function |
+| C | function definitions in `.c` and `.h` files | prototypes; GCC nested functions stay inside the enclosing function |
+
+A C field reached through a pointer is the same shape as one reached directly: `order->total` and `row.amount` normalize alike, and a call through a member, such as `ops->read(p)`, keeps `read`. A `.h` file is always parsed as C; C++ is not supported.
 
 Clojure reader conditionals keep the `:clj` branch, as dry4clj does. Syntax-quote is kept as a `syntax-quote` form rather than expanded.
 
@@ -112,4 +121,12 @@ A missing or unreadable Clojure form is reported on stderr. Forms read before it
 python3 -m venv .venv
 .venv/bin/pip install -e '.[dev]'
 .venv/bin/pytest
+```
+
+On Windows, from PowerShell:
+
+```powershell
+py -3 -m venv .venv
+.venv\Scripts\pip install -e ".[dev]"
+.venv\Scripts\pytest
 ```

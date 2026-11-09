@@ -30,6 +30,8 @@ def test_language_detection():
     assert language_of("ui/view.tsx") == "typescript"
     assert language_of("src/lib.rs") == "rust"
     assert language_of("src/dryer/cli.py") == "python"
+    assert language_of("src/board.c") == "c"
+    assert language_of("include/board.h") == "c"
     assert language_of("types.d.ts") is None
     assert language_of("notes.md") is None
 
@@ -40,6 +42,7 @@ def test_help_does_not_scan(capsys):
     assert "Usage: dryer" in out
     assert "__pycache__" in out
     assert ".test.cts" in out
+    assert "C (.c .h)" in out
     assert "--threshold" in out
 
 
@@ -170,11 +173,15 @@ def test_names_that_are_tests():
         "tests/conftest.py",
         "pkg/foo_test.py",
         "pkg/test_foo.py",
+        "src/test_board.c",
+        "src/board_test.c",
         "tests/app.py",
     ]
     for name in names:
         assert is_test_file(name), name
     assert not is_test_file("src/app.py")
+    assert not is_test_file("src/board.c")
+    assert not is_test_file("src/latest.c")
 
 
 def _init_repo(path: Path) -> None:

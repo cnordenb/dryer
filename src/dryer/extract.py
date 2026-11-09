@@ -3,7 +3,9 @@
 Clojure compares every top-level list except `ns`, matching dry4clj. The other
 languages compare the functions and methods crapper scores: bodies, not
 signatures alone, and not callbacks nested inside another function. Rust
-functions inside `mod tests` are test code and are skipped.
+functions inside `mod tests` are test code and are skipped. C compares function
+definitions; a prototype has no body, and a GCC nested function stays inside
+the function that encloses it.
 """
 
 from __future__ import annotations
@@ -143,12 +145,25 @@ def _rust_nodes(data: bytes, root) -> list:
     return found
 
 
+def _c_nodes(data: bytes, root) -> list:
+    found = []
+    stack = [root]
+    while stack:
+        node = stack.pop()
+        if node.type == "function_definition":
+            found.append(node)
+            continue
+        stack.extend(reversed(node.children))
+    return found
+
+
 _PICKERS = {
     "java": ("java", _java_nodes),
     "go": ("go", _go_nodes),
     "python": ("python", _python_nodes),
     "typescript": (_grammar, _typescript_nodes),
     "rust": ("rust", _rust_nodes),
+    "c": ("c", _c_nodes),
 }
 
 
