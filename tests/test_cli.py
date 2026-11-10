@@ -36,6 +36,11 @@ def test_language_detection():
     assert language_of("notes.md") is None
 
 
+def test_javascript_files_are_read_as_typescript():
+    assert [language_of(n) for n in ("a.js", "b.jsx", "c.mjs", "d.cjs")] == ["typescript"] * 4
+    assert all(is_test_file(n) for n in ("a.test.js", "a.spec.jsx", "a.test.mjs", "a.spec.cjs"))
+
+
 def test_help_does_not_scan(capsys):
     assert run(["--help"]) == 0
     out = capsys.readouterr().out

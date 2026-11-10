@@ -26,13 +26,19 @@ _TS_FUNCTION = {
 _DEFINITION_PARENTS = {
     "variable_declarator",
     "public_field_definition",
+    "field_definition",
     "property_definition",
 }
+
+
+_JS_SUFFIXES = (".jsx", ".mjs", ".cjs", ".js")
 
 
 def _grammar(path: str) -> str:
     if path.endswith(".tsx"):
         return "tsx"
+    if path.endswith(_JS_SUFFIXES):
+        return "javascript"
     return "typescript"
 
 

@@ -562,6 +562,29 @@ xs.map((item: number) => item + 1);
     ) == [(2, 4), (6, 12)]
 
 
+def test_javascript_keeps_functions_methods_and_class_fields_around_jsx():
+    assert spans(
+        "typescript",
+        """\
+export class Box {
+  run(xs) {
+    return <ul>{xs}</ul>;
+  }
+  size = (xs) => {
+    return xs.length;
+  };
+}
+export function outer(xs) {
+  function inner(ys) {
+    return <li>{ys}</li>;
+  }
+  return inner(xs);
+}
+""",
+        "a.jsx",
+    ) == [(2, 4), (5, 7), (9, 14)]
+
+
 def test_c_compares_definitions_and_keeps_nested_functions_inside():
     assert spans(
         "c",
